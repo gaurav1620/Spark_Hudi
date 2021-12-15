@@ -1,4 +1,5 @@
 // spark-shell
+import spray.json._
 import org.apache.hudi.QuickstartUtils._
 import scala.util.parsing.json._
 import scala.collection.JavaConversions._
@@ -7,8 +8,26 @@ import org.apache.hudi.DataSourceReadOptions._
 import org.apache.hudi.DataSourceWriteOptions._
 import org.apache.hudi.config.HoodieWriteConfig._
 
+
+
+def jsonToMap(js:String) : Map[String,Any] = {
+  return JSON.parseFull(js).get.asInstanceOf[Map[String,Any]]
+}
+def getValFromRecord(df: Dataset) : Any = {
+}
+val record_keys = Set(calendarTime, name, epoch, numerics, snapshot, hostIdentifier, counter, unixTime, action)
+
+
+x.limit(10).select($"value").foreach(zp => println(jsonToMap(zp(0).toString()).get("name").get))
+
+
 val tableName = "osquerydb6"
 val basePath = "file:///tmp/osquerydb6"
+// gg
+JSON.parseFull(x.limit(10).select($"value").head()(0).toString()).get.asInstanceOf[Map[String, Any]].get("name")
+spark.read.format("hudi").load(basePath).limit(2).select($"value").foreach(x => println(x(0).getClass))
+spark.read.format("hudi").load(basePath).limit(1).select($"value").foreach(x => println(JSON.parseFull(x(0).toString()).get.getClass))
+
 spark.read.format("hudi").load(basePath).select($"cpu_brand").show()
 spark.read.format("hudi").option("as.of.instant", "20211124091108").load(basePath).show()
 
