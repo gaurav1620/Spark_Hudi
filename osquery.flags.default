@@ -1,6 +1,6 @@
 --logger_snapshot_event_type=true
 --disable_enrollment=true
---logger_kafka_brokers=PLAINTEXT://localhost:9093
+--logger_kafka_brokers=PLAINTEXT://localhost:9092
 --logger_kafka_topic=Orders1
 --logger_kafka_acks=1 
 --logger_kafka_compression=gzip
