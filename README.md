@@ -44,3 +44,21 @@ Let’s compare COW vs MOR on certain important criteria.
 Hudi maintains different file versions for data files as new commits happen in hudi to support incremental queries. Obviously, we can’t support infinite retention and hence older file versions have to be cleaned up at regular cadence(still users can choose not to clean up any data if they wish to). Hence “cleaning” operation does the job of cleaning up such older data files. Cleaner Policy determines which files need to be cleaned up. Most commonly used policy is based on number of commits (KEEP_LATEST_COMMITS). For eg, users can configure to retain only 4commits. This means, when 5th commit happens, all data files pertaining to 1st commit will be eligible to be cleaned up. When exactly clean up of the eligible data files happen depends on whether inline cleaning is enabled or async cleaning is enabled.
 
 <img src="./images/4.png" width="800">
+
+## Steps to run docker containers
+```
+cd Spark_Hudi/hudi/
+docker build  --tag hudi .
+cd ..
+docker-compose -f docker-compose.yml up
+```
+Now open a bash shell into the hudi container
+```
+docker ps
+docker exec -it ${hudi_container_id} bash
+```
+Now paste the below commands to run the spark job inside the container
+```
+cd StreamHandler && sbt package && /opt/spark/bin/spark-submit --class StreamHandler --master local[*] --packages  "org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.0,org.apache.hudi:hudi-spark-bundle_2.11:0.9.0,org.apache.spark:spark-avro_2.11:2.4.4"  --conf 'spark.serializer=org.apache.spark.serializer.KryoSerializer' target/scala-2.11/stream-handler_2.11-1.0.jar
+```
+
