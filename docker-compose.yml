@@ -1,13 +1,91 @@
 version: '2'
 services:
+  vertica:
+    environment:
+      APP_DB_USER: "newdbadmin"
+      APP_DB_PASSWORD: "vertica"
+      TZ: "Europe/Prague"
+    container_name: vertica-ce
+    image: vertica/vertica-ce
+    ports:
+      - "5433:5433"
+      - "5444:5444"
+    deploy:
+      mode: global
+    volumes:
+      - type: volume
+        source: vertica-data2
+        target: /data
   osquery:
     image: kolide/osquery
     volumes:
       - ./osquery_files:/etc/osquery
+    container_name: osquery
 
-  # cd StreamHandler && sbt package && /opt/spark/bin/spark-submit --class StreamHandler --master local[*] --packages  "org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.0,org.apache.hudi:hudi-spark-bundle_2.11:0.9.0,org.apache.spark:spark-avro_2.11:2.4.4"  --conf 'spark.serializer=org.apache.spark.serializer.KryoSerializer' target/scala-2.11/stream-handler_2.11-1.0.jar
+  presto:
+    build: ./presto/
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./presto/coordinator_config.properties:/opt/presto/etc/config.properties
+      - ./presto/etc/catalog:/opt/presto/etc/catalog
+    container_name: presto
+
+  hive:
+    build: ./hive
+    restart: unless-stopped
+    ports:
+      - 9083:9083
+    container_name: hive
+
+  presto-worker:
+    build: ./presto/
+    volumes:
+      - ./presto/worker_config.properties:/opt/presto/etc/config.properties
+      - ./presto/etc/catalog:/opt/presto/etc/catalog
+    container_name: presto_worker
+
+  #prseto:
+    #image: johandry/presto
+    #volumes:
+    # - /hudi_tmp:/hudi_tmp
+# minio:
+#   image: minio/minio:latest
+#   volumes:
+#     - ./hudi_tmp/osq_cow:/data
+#     - ../minio/script.sh:/script.sh
+#   ports:
+#     - 9000:9000
+#     - 9001:9001
+#     - 37401:37401
+#   entrypoint: ["/usr/bin/docker-entrypoint.sh", "minio", "server",  "--console-address",":9001", "/data"]
+
+  minio:
+    image: "minio/minio:latest"
+    volumes:
+      - ./.storage/minio:/data
+    ports:
+      - 9000:9000
+      - 9001:9001
+    environment:
+      MINIO_ACCESS_KEY: "root"
+      MINIO_SECRET_KEY: "root12345"
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    container_name: minio
+
+  minio-client:
+    image: bitnami/minio
+
   hudi:
     image: hudi:latest
+    volumes:
+      - ./hudi_tmp:/tmp
+    container_name: hudi
 
   #  echo "hello world" | kafka-console-producer --broker-list kafka:9092 --topic Orders1
   zookeeper:
@@ -16,7 +94,8 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
-    - 22181:2181
+      - 22181:2181
+    container_name: zookeeper
 
 
   # kafka-console-consumer  --bootstrap-server localhost:9092 --topic Orders1    
@@ -35,7 +114,10 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    container_name: kafka
 
 networks:
     kafka_network:
           name: kafka_docker_example_net
+volumes:
+    vertica-data2:

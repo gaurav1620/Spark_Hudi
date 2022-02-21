@@ -2,6 +2,17 @@ import org.apache.spark.sql._
 import scala.util.control._
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.from_json
+    import org.apache.log4j.Logger
+
+    import org.apache.log4j.Level
+
+
+import org.apache.hudi.QuickstartUtils._
+import scala.collection.JavaConversions._
+import org.apache.spark.sql.SaveMode._
+import org.apache.hudi.DataSourceReadOptions._
+import org.apache.hudi.DataSourceWriteOptions._
+import org.apache.hudi.config.HoodieWriteConfig._
 
 import scala.util.parsing.json._
 import org.apache.spark.sql.functions._
@@ -25,11 +36,18 @@ import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent
 
 import java.time.LocalDateTime
 
+import java.io.ByteArrayInputStream
+
+import io.minio.MinioClient
+import org.apache.commons.io.IOUtils
+import sun.misc.BASE64Decoder
 
 case class DeviceData(ts: String  ,board_version: String,computer_name: String,cpu_brand: String,cpu_logical_cores:String, cpu_microcode:String, partitionpath: String)
 
 object StreamHandler {
 	def main(args: Array[String]) {
+    Logger.getLogger("org").setLevel(Level.OFF);
+    Logger.getLogger("akka").setLevel(Level.OFF);
 
     def jsonToMap(js: String) : Map[String,String] = {
       return JSON.parseFull(js).get.asInstanceOf[Map[String,String]]
@@ -39,11 +57,15 @@ object StreamHandler {
       master("local")
       .appName("spark")
       .getOrCreate()
-
+    spark.sparkContext.hadoopConfiguration.set("fs.s3a.access.key", "EZ3R6AEBYFXBNQX4QW5Z")
+    spark.sparkContext.hadoopConfiguration.set("fs.s3a.secret.key", "+Kn+eo478srn2OaFK89kqSiugU+c1ztcy3+xbeZ8")
+    spark.sparkContext.hadoopConfiguration.set("fs.s3a.endpoint", "minio:9000")
+    //spark.sparkContext.hadoopConfiguration.set("fs.s3a.path.style.access", "true")
+    //spark.sparkContext.hadoopConfiguration.set("fs.s3a.signing-algorithm","S3SignerType")
       val sqlContext = new org.apache.spark.sql.SQLContext(spark.sparkContext)
       import sqlContext.implicits._
 
-    spark.sparkContext.hadoopConfiguration.setClass("mapreduce.input.pathFilter.class", classOf[org.apache.hudi.hadoop.HoodieROTablePathFilter], classOf[org.apache.hadoop.fs.PathFilter]);
+    //spark.sparkContext.hadoopConfiguration.setClass("mapreduce.input.pathFilter.class", classOf[org.apache.hudi.hadoop.HoodieROTablePathFilter], classOf[org.apache.hadoop.fs.PathFilter]);
 
     val cow = 1;
     var table_name = "osq_cow";
@@ -56,11 +78,11 @@ object StreamHandler {
     val tablename = table_name
     val basepath = "file:///tmp/"+ table_name
     val basepath1 = "/tmp/"+table_name
-    val osquery_names = List("pack_system-snapshot_some_query1", "pack_system-snapshot_some_query2")
+    val osquery_names = List("pack_system-snapshot_some_query1", "pack_system-snapshot_some_query2", "pack_system-snapshot_some_query3","pack_system-snapshot_some_query4")
     var count = 0
     val df = spark.readStream
       .format("kafka")
-      .option("kafka.bootstrap.servers", "localhost:9092")
+      .option("kafka.bootstrap.servers", "kafka:9092")
       .option("subscribe", "Orders1")
       .option("failOnDataLoss", "false")
       .option("startingOffsets", "earliest")
@@ -80,26 +102,29 @@ object StreamHandler {
             println("    " + query_name + " has " + filteredDF.count().toString + " records.")
             if(filteredDF.count() == 0)outLoop.break()
             val parsed = filteredDF.select("value").rdd.map(r => r(0)).collect().map(x =>x.toString)
-            val gp = parsed.map(x => x.toString.slice(x.toString.indexOf("[") + 1, x.toString.indexOf("]") ))
+            //val gp = parsed.map(x => x.toString.slice(x.toString.indexOf("[") + 1, x.toString.indexOf("]") ))
+            val gp = parsed.map(x => x.toString.slice(x.toString.indexOf("{",x.toString.indexOf("{") + 1) , x.toString.indexOf("}") +1 ))
             var str = "["
             gp.foreach(x => {str = str + x.toString + ","})
             str = str.dropRight(1)
             str = str + "]"
 
-            if(str == "]")outLoop.break()
+            if(str == "]" || (str.count(_ == 'l') >= str.length()-2))outLoop.break()
 
             str = str.replaceAll("\"\"","\"temp\"")
 //            println(gp.getClass)
 //            println("Incoming " + str)
-
+//
             val tempStr = Seq(str)
+            if(tempStr.isEmpty)outLoop.break()
+          println(str)
             val df_final = tempStr.toDF("json")
             val schema = df_final.select(schema_of_json(df_final.select(col("json")).first.getString(0))).as[String].first
 //            println(schema.toString)
             val expr_string = "from_json(json, '"+schema.toString + "') as parsed_json"
 //            println( "EXPR : " + expr_string)
 //            df_final.select(to_json(schema))
-//            df_final.show()
+            df_final.show()
             val parsedJson1 = df_final.selectExpr(expr_string)
             val data = parsedJson1.selectExpr("explode(parsed_json) as json").select("json.*").withColumn("id",monotonicallyIncreasingId())
 
@@ -119,6 +144,8 @@ object StreamHandler {
 
 //             data_new.show()
             data_new.
+           //filteredDF.show()
+            //filteredDF.
               write.
               format("org.apache.hudi").
               options(getQuickstartWriteConfigs).
@@ -135,7 +162,9 @@ object StreamHandler {
 //              option("hoodie.upsert.shuffle.parallelism","1").
               option("hoodie.table.name", tablename.toString()).
               mode(Append).
-              save(basepath+"/"+query_name)
+              //save("http://minio:9000/"+query_name)
+              save("s3a://"+"osquery/" + query_name+"/")
+              //save(basepath+"/"+query_name)
         }
       })
         batchDF.unpersist()
