@@ -59,6 +59,9 @@ docker exec -it ${hudi_container_id} bash
 ```
 Now paste the below commands to run the spark job inside the container
 ```
-cd StreamHandler && sbt package && /opt/spark/bin/spark-submit --class StreamHandler --master local[*] --packages  "org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.0,org.apache.hudi:hudi-spark-bundle_2.11:0.9.0,org.apache.spark:spark-avro_2.11:2.4.4"  --conf 'spark.serializer=org.apache.spark.serializer.KryoSerializer' target/scala-2.11/stream-handler_2.11-1.0.jar
+cd /StreamHandler && sbt package && /opt/spark/bin/spark-submit --class StreamHandler --master local[*] --packages  "org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.0,org.apache.hudi:hudi-spark-bundle_2.11:0.9.0,org.apache.spark:spark-avro_2.11:2.4.4"  --conf 'spark.serializer=org.apache.spark.serializer.KryoSerializer' target/scala-2.11/stream-handler_2.11-1.0.jar
 ```
-
+To run with scala 2.12 and spark 3.1 excute the following command
+```
+cd /StreamHandler && /sbt/bin/sbt package &&  /opt/spark/bin/spark-submit --class StreamHandler --master local[*] --packages  "org.apache.spark:spark-sql-kafka-0-10_2.12:3.0.1,org.apache.hudi:hudi-spark-bundle_2.12:0.9.0,org.apache.spark:spark-avro_2.12:2.4.2"  --conf 'spark.serializer=org.apache.spark.serializer.KryoSerializer' target/scala-2.11/stream-handler_2.11-1.0.jar
+```
