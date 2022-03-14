@@ -7,25 +7,27 @@ services:
       TZ: "Europe/Prague"
     container_name: vertica-ce
     image: vertica/vertica-ce
-    ports:
-      - "5433:5433"
-      - "5444:5444"
+    #ports:
+    #  - "5433:5433"
+    #  - "5444:5444"
     deploy:
       mode: global
     volumes:
       - type: volume
         source: vertica-data2
         target: /data
+    network_mode: "host"
   osquery:
-    image: kolide/osquery
+    image: kolide/osquery:latest
     volumes:
       - ./osquery_files:/etc/osquery
     container_name: osquery
+    network_mode: "host"
 
   presto:
     build: ./presto/
-    ports:
-      - "8888:8888"
+    #ports:
+    #  - "8888:8888"
     volumes:
       - ./presto/coordinator_config.properties:/opt/presto/etc/config.properties
       - ./presto/etc/catalog:/opt/presto/etc/catalog
@@ -34,9 +36,10 @@ services:
   hive:
     build: ./hive
     restart: unless-stopped
-    ports:
-      - 9083:9083
+    #ports:
+    #  - 9083:9083
     container_name: hive
+    network_mode: "host"
 
   presto-worker:
     build: ./presto/
@@ -44,6 +47,7 @@ services:
       - ./presto/worker_config.properties:/opt/presto/etc/config.properties
       - ./presto/etc/catalog:/opt/presto/etc/catalog
     container_name: presto_worker
+    network_mode: "host"
 
   #prseto:
     #image: johandry/presto
@@ -64,9 +68,9 @@ services:
     image: "minio/minio:latest"
     volumes:
       - ./.storage/minio:/data
-    ports:
-      - 9000:9000
-      - 9001:9001
+        #ports:
+        #- 9000:9000
+        #- 9001:9001
     environment:
       MINIO_ACCESS_KEY: "root"
       MINIO_SECRET_KEY: "root12345"
@@ -78,6 +82,8 @@ services:
       retries: 3
     container_name: minio
 
+    network_mode: "host"
+
   minio-client:
     image: bitnami/minio
 
@@ -86,6 +92,7 @@ services:
     volumes:
       - ./hudi_tmp:/tmp
     container_name: hudi
+    network_mode: "host"
 
   #  echo "hello world" | kafka-console-producer --broker-list kafka:9092 --topic Orders1
   zookeeper:
@@ -93,9 +100,10 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - 22181:2181
+      #ports:
+      #- 22181:2181
     container_name: zookeeper
+    network_mode: "host"
 
 
   # kafka-console-consumer  --bootstrap-server localhost:9092 --topic Orders1    
@@ -103,18 +111,19 @@ services:
     image: confluentinc/cp-kafka:latest
     depends_on:
       - zookeeper
-    ports:
-      - 29092:29092
+        #ports:
+        #- 29092:29092
     volumes:
       - ./kafka_data/kafka/:/tmp/kafka-logs/
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_ZOOKEEPER_CONNECT: localhost:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     container_name: kafka
+    network_mode: "host"
 
 networks:
     kafka_network:
