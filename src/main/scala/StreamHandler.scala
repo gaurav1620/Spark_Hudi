@@ -39,7 +39,6 @@ import java.time.LocalDateTime
 
 import java.io.ByteArrayInputStream
 
-import io.minio.MinioClient
 import org.apache.commons.io.IOUtils
 import sun.misc.BASE64Decoder
 
