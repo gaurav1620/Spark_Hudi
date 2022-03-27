@@ -1,22 +1,5 @@
 version: '2'
 services:
-  vertica:
-    environment:
-      APP_DB_USER: "newdbadmin"
-      APP_DB_PASSWORD: "vertica"
-      TZ: "Europe/Prague"
-    container_name: vertica-ce
-    image: vertica/vertica-ce
-    #ports:
-    #  - "5433:5433"
-    #  - "5444:5444"
-    deploy:
-      mode: global
-    volumes:
-      - type: volume
-        source: vertica-data2
-        target: /data
-    network_mode: "host"
   osquery:
     image: kolide/osquery:latest
     volumes:
@@ -88,7 +71,7 @@ services:
     image: bitnami/minio
 
   hudi:
-    image: hudi:latest
+    build: ./hive
     volumes:
       - ./hudi_tmp:/tmp
     container_name: hudi
